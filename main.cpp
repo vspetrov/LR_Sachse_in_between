@@ -11,6 +11,8 @@ int main(int argc, char *argv[])
 	Fibroblast *FB;
 
 
+
+
 	int *type;
 
 

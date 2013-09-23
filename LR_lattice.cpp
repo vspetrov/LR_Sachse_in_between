@@ -2,8 +2,9 @@
 #include <unistd.h>
 
 
-const int Size = 15;
-double D1 = 0.05;
+const int Size = 20;
+double D1 = 0.3;
+double D2 = 0.3;
 void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **type)
 {
 	*V   = new double[Size];
@@ -19,19 +20,22 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
     /* Types:
      * 0 - myocyte
      * 1 - FB
+     * 2 - extra myo
      */
-    for (int i=Size/3; i<2*Size/3; i++){
+    for (int i=Size/4; i<2*Size/4; i++){
         (*type)[i] = 1;
     }
 
-
+    for (int i=3*Size/4; i<Size; i++){
+        (*type)[i] = 2;
+    }
 
 	//(*type)[1] = 1; //fibroblast
 
 	for (int i=0; i<Size; i++)
 	{
 		(*Vc)[i]  = 0.   	   ;
-		if ((*type)[i] == 0)
+        if ((*type)[i] == 0 || (*type)[i] == 2)
 		{
             (*V)[i]   = -72.	   ;
 			
@@ -100,7 +104,7 @@ double SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibro
 	for (time=0; time<MT; time++)
 	{
 		for (i=0; i<Size; i++)
-			if (type[i] == 0)
+            if (type[i] != 1)
 				OdeSolve(i,V,LR);		
 			else
 				OdeSolve_fib(i,V,FB);
@@ -188,21 +192,33 @@ inline int Substeps(double &vd)
 double Coupling(int i, double *V, int *type)
 {
 	int ln, rn;
-	if (i != 0) ln=i-1;
-	else ln=i;
+    double C = 0;
+    if (type[i] != 2){
+        if (i != 0) ln=i-1;
+        else ln=i;
 
-	if (i != Size-1) rn=i+1;
-	else rn=i;
+        if (i != 3*Size/4-1) rn=i+1;
+        else rn=i;
 
-	double C = 0;
-	if (type[i] == 1)
-	{
-        C += D1*(V[ln]-V[i]);
-	}
-	else
-	{
-        C += D1*(V[ln]-V[i]);
-	}
+        if (type[i] == 1)
+        {
+            C += D1*(V[ln]+V[rn]-2*V[i])+
+                    D2*(V[i+2*Size/4]-V[i]);
+        }
+        else if (type[i] == 0)
+        {
+            C += D1*(V[ln]+V[rn]-2*V[i]);
+        }
+    }else{
+        if (i != 3*Size/4) ln=i-1;
+        else ln=i;
+
+        if (i != Size-1) rn=i+1;
+        else rn=i;
+
+        C += D1*(V[ln]+V[rn]-2*V[i])+
+                D2*(V[i-2*Size/4]-V[i]);
+    }
 	return C;
 }
 
