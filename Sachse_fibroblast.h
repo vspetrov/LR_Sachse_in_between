@@ -18,7 +18,7 @@ const double z_v = -1.53;
 const double ko = 77e-3;
 const double k_o = 18e-3;
 const double P_shkr = 5.4e-3;
-const double G_b = 6.9e-3*50;
+const double G_b = 6.9e-3;
 const double E_b = 0.;
 const double FbyRT = F/(R*T);
 

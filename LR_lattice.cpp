@@ -3,7 +3,7 @@
 
 
 const int Size = 15;
-double D1 = 0.1;
+double D1 = 0.05;
 void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **type)
 {
 	*V   = new double[Size];
@@ -16,7 +16,13 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
 	for (int i=0; i<Size; i++)
         (*type)[i] = 0;
 
-	(*type)[0] = 0; //myocyte
+    /* Types:
+     * 0 - myocyte
+     * 1 - FB
+     */
+    for (int i=Size/3; i<2*Size/3; i++){
+        (*type)[i] = 1;
+    }
 
 
 
@@ -191,15 +197,7 @@ double Coupling(int i, double *V, int *type)
 	double C = 0;
 	if (type[i] == 1)
 	{
-//		if (type[ln] == 1)
-//			C += Dff*(V[ln]-V[i]);
-//		else
-//			C += Dpf*(V[ln]-V[i]);
-
-//		if (type[rn] == 1)
-//			C += Dff*(V[rn]-V[i]);
-//		else
-//			C += Dpf*(V[rn]-V[i]);
+        C += D1*(V[ln]-V[i]);
 	}
 	else
 	{
