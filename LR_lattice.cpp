@@ -1,10 +1,13 @@
 #include "LR_lattice.h"
 #include <unistd.h>
+#include <vector>
 
+#define SAVE_RST_FILE 0
+#define SHOW_PROGRESS 0
 
 const int Size = 20;
 double D1 = 0.3;
-double D2 = 0.3;
+double D2 = 0.1;
 void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **type)
 {
 	*V   = new double[Size];
@@ -80,7 +83,7 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
 
 
 
-double SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibroblast *FB, int *type)
+int SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibroblast *FB, int *type)
 {
 	int i; //counting variables
 	int time;//time itarator
@@ -91,6 +94,11 @@ double SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibro
     int writeCounter = 0;
 
     int progressStep = (int)(MaxTime/100.0/dt);
+    std::vector<std::pair<double,double> > amplitude(Size);
+    for (int i=0; i<Size; i++){
+        amplitude[i].first = 1e10; //min
+        amplitude[i].second = -1e10; //max
+    }
     V[0] = V[1] = 0;
 	//integrating on the interval from time to time+dt/2
     for (i=0; i<Size; i++)
@@ -99,8 +107,9 @@ double SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibro
     for (i=0; i<Size; i++)
         V[i]+=Vc[i];
 
+#if SAVE_RST_FILE > 0
     int fd = open("rst.bin",O_CREAT | O_RDWR, S_IREAD | S_IWRITE);
-
+#endif
 	for (time=0; time<MT; time++)
 	{
 		for (i=0; i<Size; i++)
@@ -115,19 +124,29 @@ double SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibro
 	
         for (i=0; i<Size; i++)
             V[i]+=Vc[i];
-
+#if SAVE_RST_FILE > 0
         if (time >= writeInterval*writeCounter){
             write(fd,V,Size*sizeof(double));
             writeCounter++;
         }
+#endif
 
+#if SHOW_PROGRESS > 0
         if (time/progressStep*progressStep == time){
             printf("Progress: %d%%\n",time/progressStep);
         }
+#endif
+        for (i=0; i<Size; i++){
+            if (V[i] > amplitude[i].second) amplitude[i].second = V[i];
+            if (V[i] < amplitude[i].first ) amplitude[i].first  = V[i];
+        }
 	}
+#if SAVE_RST_FILE > 0
     close(fd);
     printf("writeCounter=%d\n",writeCounter);
-    return 0.0;
+#endif
+
+    return amplitude[3*Size/4-1].second - amplitude[3*Size/4-1].first > 50.0 ? 1 : 0;
 }
 
 void OdeSolve(int i,  double *V, LR_vars *LR)

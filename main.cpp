@@ -1,22 +1,77 @@
 #include <time.h>
 #include "LR_lattice.h"
-
-
+#include <iostream>
+#include <mpi.h>
 int main(int argc, char *argv[])
 {
 
 
-	double *V, *Vc;
-	LR_vars *LR;
-	Fibroblast *FB;
+    int size, rank;
+    MPI_Init(&argc,&argv);
 
+    MPI_Comm_size(MPI_COMM_WORLD,&size);
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 
-
-
-	int *type;
-
-
-    Init_system(&V,&Vc,&LR,&FB,&type);
-
-    SolveEquations(1000,V,Vc,LR,FB,type);
+    const double D1min = 0;
+    const double D1max = 0.4;
+    const double D2min = 0;
+    const double D2max = 0.4;
+    const int D1steps = 10;
+    const int D2steps = 5;
+    int *rst = new int[D1steps/size*D2steps];
+    for (int i=D1steps/size*rank; i<D1steps/size*(rank+1); i++){
+        D1 = D1min + (D1max-D1min)*i/(double)(D1steps-1);
+        for (int j=0; j<D2steps; j++){
+            D2 = D2min + (D2max-D2min)*j/(double)(D2steps-1);
+            double *V, *Vc;
+            LR_vars *LR;
+            Fibroblast *FB;
+            int *type;
+            Init_system(&V,&Vc,&LR,&FB,&type);
+            int has_propagation = SolveEquations(300,V,Vc,LR,FB,type);
+            rst[(i-D1steps/size*rank)*D2steps+j] = has_propagation;
+            delete[] LR;
+            delete[] FB;
+            delete[] type;
+            delete[] Vc;
+            delete[] V;
+        }
+        if (0==rank){
+            std::cout << i+1 << " steps out of " <<D1steps/size << " are done .." << std::endl;
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    int *Allrst = NULL;
+    if (rank == 0){
+        Allrst = new int[D1steps*D2steps];
+    }
+    MPI_Gather(rst,D1steps/size*D2steps,MPI_INT,Allrst,D1steps/size*D2steps,MPI_INT,0,MPI_COMM_WORLD);
+    if (rank == 0){
+        int fd = open("rst.bin",O_CREAT | O_RDWR, S_IREAD | S_IWRITE);
+        write(fd,Allrst,D1steps*D2steps*sizeof(int));
+        FILE *ofs = fopen("show_rst.m","w");
+        fprintf(ofs,
+                    "clear all;\n"
+                "fd=fopen('rst.bin','r');\n"
+                "D1steps=%d;\n"
+                "D2steps=%d;\n"
+                "D1max=%g;\n"
+                "D2max=%g;\n"
+                "D1min=%g;\n"
+                "D2min=%g;\n"
+                "data=fread(fd,[D2steps D1steps],'int');\n"
+                "d1=[D1min:(D1max-D1min)/(D1steps-1):D1max];\n"
+                "d2=[D2min:(D2max-D2min)/(D2steps-1):D2max];\n"
+                "[xx,yy] = meshgrid(d1,d2);\n"
+                "surf(xx,yy,data);\n"
+                "view(0,90);\n"
+                "shading flat;\n"
+                ,D1steps,D2steps,D1max,D2max,D1min,D2min);
+        fclose(ofs);
+        delete[] Allrst;
+        close(fd);
+    }
+    delete[] rst;
+    MPI_Finalize();
+    return 0;
 }
