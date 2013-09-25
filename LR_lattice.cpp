@@ -8,6 +8,7 @@
 const int Size = 20;
 double D1 = 0.3;
 double D2 = 0.1;
+double D3 = 0.;
 void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **type)
 {
 	*V   = new double[Size];
@@ -235,7 +236,7 @@ double Coupling(int i, double *V, int *type)
         if (i != Size-1) rn=i+1;
         else rn=i;
 
-        C += D1*(V[ln]+V[rn]-2*V[i])+
+        C += D3*(V[ln]+V[rn]-2*V[i])+
                 D2*(V[i-2*Size/4]-V[i]);
     }
 	return C;

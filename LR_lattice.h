@@ -23,4 +23,5 @@ extern const int Size;
 const double dt=0.1;
 extern double D1;
 extern double D2;
+extern double D3;
 #endif 

@@ -2,6 +2,11 @@
 #include "LR_lattice.h"
 #include <iostream>
 #include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string>
+#include <sstream>
 int main(int argc, char *argv[])
 {
 
@@ -13,11 +18,11 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 
     const double D1min = 0;
-    const double D1max = 0.4;
+    const double D1max = 1.5;
     const double D2min = 0;
-    const double D2max = 0.4;
-    const int D1steps = 10;
-    const int D2steps = 5;
+    const double D2max = 1.5;
+    const int D1steps = 160;
+    const int D2steps = 160;
     int *rst = new int[D1steps/size*D2steps];
     for (int i=D1steps/size*rank; i<D1steps/size*(rank+1); i++){
         D1 = D1min + (D1max-D1min)*i/(double)(D1steps-1);
@@ -47,12 +52,18 @@ int main(int argc, char *argv[])
     }
     MPI_Gather(rst,D1steps/size*D2steps,MPI_INT,Allrst,D1steps/size*D2steps,MPI_INT,0,MPI_COMM_WORLD);
     if (rank == 0){
-        int fd = open("rst.bin",O_CREAT | O_RDWR, S_IREAD | S_IWRITE);
+        std::ostringstream oss;
+        oss << D3;
+        std::string suffix="d3_"+oss.str();
+        std::string rst_name = "rst_"+suffix+".bin";
+        std::string octave_name = "show_rst_"+suffix+".m";
+
+        int fd = open(rst_name.c_str(),O_CREAT | O_RDWR, S_IREAD | S_IWRITE);
         write(fd,Allrst,D1steps*D2steps*sizeof(int));
-        FILE *ofs = fopen("show_rst.m","w");
+        FILE *ofs = fopen(octave_name.c_str(),"w");
         fprintf(ofs,
                     "clear all;\n"
-                "fd=fopen('rst.bin','r');\n"
+                "fd=fopen('%s','r');\n"
                 "D1steps=%d;\n"
                 "D2steps=%d;\n"
                 "D1max=%g;\n"
@@ -62,11 +73,16 @@ int main(int argc, char *argv[])
                 "data=fread(fd,[D2steps D1steps],'int');\n"
                 "d1=[D1min:(D1max-D1min)/(D1steps-1):D1max];\n"
                 "d2=[D2min:(D2max-D2min)/(D2steps-1):D2max];\n"
-                "[xx,yy] = meshgrid(d1,d2);\n"
+                "[xx,yy] = meshgrid(d2,d1);\n"
                 "surf(xx,yy,data);\n"
                 "view(0,90);\n"
+                "ylim([D1min D1max]);\n"
+                "xlim([D2min D2max]);\n"
+                "xlabel('D2');\n"
+                "ylabel('D1');\n"
                 "shading flat;\n"
-                ,D1steps,D2steps,D1max,D2max,D1min,D2min);
+                ,rst_name.c_str(),
+                D1steps,D2steps,D1max,D2max,D1min,D2min);
         fclose(ofs);
         delete[] Allrst;
         close(fd);
