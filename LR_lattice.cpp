@@ -6,16 +6,17 @@
 #define SHOW_PROGRESS 0
 
 const int Size = 20;
-double D1 = 0.3;
-double D2 = 0.1;
+double D1 = 0.7;
+double D2 = 0.65;
 double D3 = 0.;
+double PacePeriod = 500.0; //milliseconds
 void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **type)
 {
 	*V   = new double[Size];
 	*Vc   = new double[Size];
 	*LR  = new LR_vars[Size];
 	*FB  = new Fibroblast[Size];
-	
+
 	*type  = new int[Size];
 
 	for (int i=0; i<Size; i++)
@@ -42,7 +43,7 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
         if ((*type)[i] == 0 || (*type)[i] == 2)
 		{
             (*V)[i]   = -72.	   ;
-			
+
 			(*LR)[i].m = 0.00231609;
 			(*LR)[i].h = 0.973114;
 			(*LR)[i].j = 0.84991;
@@ -51,6 +52,7 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
 			(*LR)[i].X = 0.018826;
 			(*LR)[i].Cai = 0.000445703;
 			(*LR)[i].G_K1 = 0.6047;
+            (*LR)[i].Iext = 0.0;
 		}
 		else
 		{
@@ -84,12 +86,12 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
 
 
 
-int SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibroblast *FB, int *type)
+double SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibroblast *FB, int *type)
 {
-	int i; //counting variables
-	int time;//time itarator
-	int MT;
-	MT=int(MaxTime/dt);
+    int i; //counting variables
+    int time;//time itarator
+    int MT;
+    MT=int(MaxTime/dt);
     double write_interval = 10.0;
     int writeInterval = (int)(write_interval/dt);
     int writeCounter = 0;
@@ -100,10 +102,10 @@ int SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibrobla
         amplitude[i].first = 1e10; //min
         amplitude[i].second = -1e10; //max
     }
-    V[0] = V[1] = 0;
-	//integrating on the interval from time to time+dt/2
+
+    //integrating on the interval from time to time+dt/2
     for (i=0; i<Size; i++)
-            Vc[i]=dt/2.*Coupling(i,V,type);
+        Vc[i]=dt/2.*Coupling(i,V,type);
 
     for (i=0; i<Size; i++)
         V[i]+=Vc[i];
@@ -111,18 +113,38 @@ int SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibrobla
 #if SAVE_RST_FILE > 0
     int fd = open("rst.bin",O_CREAT | O_RDWR, S_IREAD | S_IWRITE);
 #endif
-	for (time=0; time<MT; time++)
-	{
-		for (i=0; i<Size; i++)
+    const int pacingPeriod = (int)(PacePeriod/dt);
+    int paceCounter = 1;
+    const double IextAmplitude = 50.0;
+    const int paceDuration = (int)(5.0/dt);
+
+    const double threshold_low = -50;
+    const double threshold_high = -20;
+    int flag = 0;
+    const int freqCalcOffset=(int)(500.0/dt);
+    std::vector<double> spikeMoments;
+    for (time=0; time<MT; time++)
+    {
+        if (time > pacingPeriod*paceCounter){
+
+            LR[0].Iext = IextAmplitude;
+            if (time > pacingPeriod*paceCounter+paceDuration){
+                paceCounter++;
+                LR[0].Iext = 0;
+            }
+        }
+
+
+        for (i=0; i<Size; i++)
             if (type[i] != 1)
-				OdeSolve(i,V,LR);		
-			else
-				OdeSolve_fib(i,V,FB);
+                OdeSolve(i,V,LR);
+            else
+                OdeSolve_fib(i,V,FB);
 
 
         for (i=0; i<Size; i++)
             Vc[i]=dt*Coupling(i,V,type);
-	
+
         for (i=0; i<Size; i++)
             V[i]+=Vc[i];
 #if SAVE_RST_FILE > 0
@@ -137,17 +159,36 @@ int SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibrobla
             printf("Progress: %d%%\n",time/progressStep);
         }
 #endif
-        for (i=0; i<Size; i++){
+        for (i=0; time > 5000 && i<Size ; i++){
             if (V[i] > amplitude[i].second) amplitude[i].second = V[i];
             if (V[i] < amplitude[i].first ) amplitude[i].first  = V[i];
         }
-	}
+
+        if (time > freqCalcOffset){
+            double v = V[3*Size/4-1];
+            if (0 == flag && v > threshold_high){
+                flag = 1;
+                spikeMoments.push_back(time*dt);
+            }
+
+            if (1 == flag && v < threshold_low){
+                flag=0;
+            }
+        }
+    }
 #if SAVE_RST_FILE > 0
     close(fd);
     printf("writeCounter=%d\n",writeCounter);
 #endif
 
-    return amplitude[3*Size/4-1].second - amplitude[3*Size/4-1].first > 50.0 ? 1 : 0;
+
+    double freq;
+    const double refFreq = 1000.0/PacePeriod;
+    if (spikeMoments.size() >= 2)
+        freq = 1000.0/((spikeMoments[spikeMoments.size()-1]-spikeMoments[0])/(spikeMoments.size()-1));
+    else
+        freq = 0;
+    return freq/refFreq;
 }
 
 void OdeSolve(int i,  double *V, LR_vars *LR)
@@ -158,7 +199,7 @@ void OdeSolve(int i,  double *V, LR_vars *LR)
 	for(int j=0; j<kstep; j++)
 	{
 		vd=VFunction(i,V,LR);
-		
+
 		if(j==0) //decide on the time substep
 		{
 			kstep=Substeps(vd);
@@ -177,7 +218,7 @@ void OdeSolve(int i,  double *V, LR_vars *LR)
 
 void OdeSolve_fib(int i, double *V, Fibroblast *FB)
 {
-	double dV, dC0, dC1, dC2, dC3, dC4, dO;	
+	double dV, dC0, dC1, dC2, dC3, dC4, dO;
 	dV = dt*Vf_function(V[i],FB[i].O_shkr);
 	dC0 = dt*C0_function(FB[i].C0,FB[i].C1,V[i]);
 	dC1 = dt*C1_function(FB[i].C0,FB[i].C1,FB[i].C2,V[i]);
@@ -205,7 +246,7 @@ inline int Substeps(double &vd)
 
 	const int k0=vd>0. ? 5 : 1;
  	k=k0+(int)fabs(vd);
-	
+
 	return k<kmax ? k : kmax;
 }
 
@@ -241,5 +282,3 @@ double Coupling(int i, double *V, int *type)
     }
 	return C;
 }
-
-

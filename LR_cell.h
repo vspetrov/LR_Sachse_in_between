@@ -12,6 +12,7 @@ struct LR_vars{
 	double X;
 	double Cai;
 	double G_K1;
+    double Iext;
 };
 //right-hand parts of the Luo-Rudy System
 extern double VFunction(int i, double *V, LR_vars *LR);
@@ -22,5 +23,4 @@ extern double dFunction(double V, double dG, double &delta_t);
 extern double fFunction(double V, double fG, double &delta_t);
 extern double XFunction(double V, double XG, double &delta_t);
 extern double CaiFunction(double Cai,double dG, double fG, double V);
-extern double Ist;
 #endif

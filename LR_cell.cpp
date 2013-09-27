@@ -59,7 +59,7 @@ double VFunction(int i, double *V, LR_vars *LR) //find V for the Cell numbered C
 	
 	i_b=G_b*(V[i]+59.87);
 
-	return -(i_Na+i_si+i_K+i_Kl+i_Kp+i_b)+Ist;
+    return -(i_Na+i_si+i_K+i_Kl+i_Kp+i_b)+LR[i].Iext;
 }
 
 double mFunction(double V, double mG, double &delta_t)
