@@ -8,7 +8,7 @@
 #include <string>
 #include <sstream>
 
-#define MPI_2D_SEARCH 1
+#define MPI_2D_SEARCH 0
 int main(int argc, char *argv[])
 {
 #if MPI_2D_SEARCH == 0
@@ -17,7 +17,11 @@ int main(int argc, char *argv[])
     Fibroblast *FB;
     int *type;
     Init_system(&V,&Vc,&LR,&FB,&type);
-    std::cout << SolveEquations(5000,V,Vc,LR,FB,type) << std::endl;
+    std::vector<double> freqs =  SolveEquations(10000,V,Vc,LR,FB,type);
+    for (int i=0; i<freqs.size(); i++){
+        std::cout << freqs[i] << " ";
+    }
+    std::cout << std::endl;
 #else
     int size, rank;
     MPI_Init(&argc,&argv);

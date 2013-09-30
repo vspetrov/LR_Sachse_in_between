@@ -1,13 +1,14 @@
 #include "LR_lattice.h"
 #include <unistd.h>
 #include <vector>
+#include <iostream>
 
-#define SAVE_RST_FILE 0
-#define SHOW_PROGRESS 0
+#define SAVE_RST_FILE 1
+#define SHOW_PROGRESS 1
 
-const int Size = 20;
-double D1 = 0.7;
-double D2 = 0.65;
+const int Size = 40;
+double D1 = 0.002;
+double D2 = 0.5;
 double D3 = 0.;
 double PacePeriod = 500.0; //milliseconds
 void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **type)
@@ -19,19 +20,19 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
 
 	*type  = new int[Size];
 
-	for (int i=0; i<Size; i++)
-        (*type)[i] = 0;
 
     /* Types:
      * 0 - myocyte
      * 1 - FB
      * 2 - extra myo
      */
-    for (int i=Size/4; i<2*Size/4; i++){
-        (*type)[i] = 1;
+    for (int i=0; i<Size/2; i++){
+        (*type)[i] = (double)rand()/(double)RAND_MAX > 0.5 ? 1 : 0;
+        std::cout << (*type)[i] << " " ;
     }
+    std::cout << std::endl;
 
-    for (int i=3*Size/4; i<Size; i++){
+    for (int i=Size/2; i<Size; i++){
         (*type)[i] = 2;
     }
 
@@ -51,7 +52,11 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
 			(*LR)[i].f = 0.880756;
 			(*LR)[i].X = 0.018826;
 			(*LR)[i].Cai = 0.000445703;
-			(*LR)[i].G_K1 = 0.6047;
+
+            if (i < Size/2)
+                (*LR)[i].G_K1 = 0.05*(double)rand()/(double)RAND_MAX;
+            else
+                (*LR)[i].G_K1 = 0.6047  ;
             (*LR)[i].Iext = 0.0;
 		}
 		else
@@ -86,7 +91,7 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
 
 
 
-double SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibroblast *FB, int *type)
+std::vector<double> SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibroblast *FB, int *type)
 {
     int i; //counting variables
     int time;//time itarator
@@ -115,14 +120,16 @@ double SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibro
 #endif
     const int pacingPeriod = (int)(PacePeriod/dt);
     int paceCounter = 1;
-    const double IextAmplitude = 50.0;
+    const double IextAmplitude = 0;//50.0;
     const int paceDuration = (int)(5.0/dt);
-
+    std::vector<std::vector<double> > spikeMoments;
+    spikeMoments.resize(Size/2);
     const double threshold_low = -50;
     const double threshold_high = -20;
-    int flag = 0;
+    std::vector<int> flag;
+    flag.resize(Size/2);
     const int freqCalcOffset=(int)(500.0/dt);
-    std::vector<double> spikeMoments;
+
     for (time=0; time<MT; time++)
     {
         if (time > pacingPeriod*paceCounter){
@@ -165,14 +172,15 @@ double SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibro
         }
 
         if (time > freqCalcOffset){
-            double v = V[3*Size/4-1];
-            if (0 == flag && v > threshold_high){
-                flag = 1;
-                spikeMoments.push_back(time*dt);
-            }
+            for (int j=0; j<Size/2; j++){
+                if (0 == flag[j] && V[j] > threshold_high){
+                    flag[j] = 1;
+                    spikeMoments[j].push_back(time*dt);
+                }
 
-            if (1 == flag && v < threshold_low){
-                flag=0;
+                if (1 == flag[j] && V[j] < threshold_low){
+                    flag[j]=0;
+                }
             }
         }
     }
@@ -182,13 +190,15 @@ double SolveEquations(double MaxTime, double *V, double *Vc, LR_vars *LR,  Fibro
 #endif
 
 
-    double freq;
-    const double refFreq = 1000.0/PacePeriod;
-    if (spikeMoments.size() >= 2)
-        freq = 1000.0/((spikeMoments[spikeMoments.size()-1]-spikeMoments[0])/(spikeMoments.size()-1));
-    else
-        freq = 0;
-    return freq/refFreq;
+    std::vector<double> freq;
+    for (int i=0; i<Size/2; i++){
+        std::vector<double> *sm = &spikeMoments[i];
+        if (sm->size() >= 2)
+            freq.push_back(1000.0/((sm->at(sm->size()-1)-sm->at(0))/(sm->size()-1)));
+        else
+            freq.push_back(0);
+    }
+    return freq;
 }
 
 void OdeSolve(int i,  double *V, LR_vars *LR)
