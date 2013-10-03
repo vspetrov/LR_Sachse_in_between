@@ -6,10 +6,9 @@
 #define SAVE_RST_FILE 1
 #define SHOW_PROGRESS 1
 
-const int Size = 40;
-double D1 = 0.002;
-double D2 = 0.5;
-double D3 = 0.;
+const int Size = 2;
+
+double D = 0.;
 double PacePeriod = 500.0; //milliseconds
 void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **type)
 {
@@ -26,25 +25,16 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
      * 1 - FB
      * 2 - extra myo
      */
-    for (int i=0; i<Size/2; i++){
-        (*type)[i] = (double)rand()/(double)RAND_MAX > 0.5 ? 1 : 0;
-        std::cout << (*type)[i] << " " ;
-    }
-    std::cout << std::endl;
+    (*type)[0] = 0;
+    (*type)[1] = 1;
 
-    for (int i=Size/2; i<Size; i++){
-        (*type)[i] = 2;
-    }
 
-	//(*type)[1] = 1; //fibroblast
 
 	for (int i=0; i<Size; i++)
 	{
-		(*Vc)[i]  = 0.   	   ;
-        if ((*type)[i] == 0 || (*type)[i] == 2)
+        if ((*type)[i] == 0)
 		{
             (*V)[i]   = -72.	   ;
-
 			(*LR)[i].m = 0.00231609;
 			(*LR)[i].h = 0.973114;
 			(*LR)[i].j = 0.84991;
@@ -52,11 +42,7 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
 			(*LR)[i].f = 0.880756;
 			(*LR)[i].X = 0.018826;
 			(*LR)[i].Cai = 0.000445703;
-
-            if (i < Size/2)
-                (*LR)[i].G_K1 = 0.05*(double)rand()/(double)RAND_MAX;
-            else
-                (*LR)[i].G_K1 = 0.6047  ;
+            (*LR)[i].G_K1 = 0.6047  ;
             (*LR)[i].Iext = 0.0;
 		}
 		else

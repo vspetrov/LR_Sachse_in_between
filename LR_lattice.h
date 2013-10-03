@@ -21,8 +21,6 @@ extern std::vector<double> SolveEquations(double MaxTime, double *V, double *Vc,
 extern const int Size;
 
 const double dt=0.1;
-extern double D1;
-extern double D2;
-extern double D3;
+extern double D;
 extern double PacePeriod;
 #endif
