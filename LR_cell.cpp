@@ -3,11 +3,11 @@
 
 const double G_Na=23.;
 const double E_Na=54.7939;//54.4
-const double G_K=0.282;
+const double G_K=0.705;
 const double E_Kl=-85.2268;//87
 const double E_k=-77.58;
 //const double G_Kl=0.6047;
-const double G_si=0.09;
+const double G_si=0.05;
 const double G_b = 0.03921;
 double Ist = 0;
 

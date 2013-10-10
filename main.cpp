@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
     Fibroblast *FB;
     int *type;
     Init_system(&V,&Vc,&LR,&FB,&type);
-    std::vector<double> freqs =  SolveEquations(10000,V,Vc,LR,FB,type);
+    std::vector<double> freqs =  SolveEquations(5000,V,Vc,LR,FB,type);
     for (int i=0; i<freqs.size(); i++){
         std::cout << freqs[i] << " ";
     }

@@ -1,7 +1,7 @@
 #include "Sachse_fibroblast.h"
 
 
-double Vf_function(double V, double O_shkr)
+double Vf_function(double V, double O_shkr, double Iext)
 {
 	double I_kir, I_shkr, I_b;
 	double O_kir = 1./(a_kir+exp(b_kir*(V-E_k)*FbyRT));
@@ -11,7 +11,7 @@ double Vf_function(double V, double O_shkr)
 
 	I_b = G_b*(V-E_b);
 
-	return -1./Cf*(I_kir+I_b+I_shkr);
+    return -1./Cf*(I_kir+I_b+I_shkr)+Iext;
 }
 
 double C0_function(double C0, double C1, double V)

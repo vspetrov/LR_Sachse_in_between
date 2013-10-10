@@ -8,8 +8,8 @@
 
 const int Size = 2;
 
-double D = 0.;
-double PacePeriod = 500.0; //milliseconds
+double D = 0.035;
+double PacePeriod = 1000.0; //milliseconds
 void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **type)
 {
 	*V   = new double[Size];
@@ -25,8 +25,8 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
      * 1 - FB
      * 2 - extra myo
      */
-    (*type)[0] = 0;
-    (*type)[1] = 1;
+    (*type)[0] = 1;
+    (*type)[1] = 0;
 
 
 
@@ -34,7 +34,7 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
 	{
         if ((*type)[i] == 0)
 		{
-            (*V)[i]   = -72.	   ;
+            (*V)[i]   = -80.	   ;
 			(*LR)[i].m = 0.00231609;
 			(*LR)[i].h = 0.973114;
 			(*LR)[i].j = 0.84991;
@@ -48,22 +48,24 @@ void Init_system(double **V, double **Vc, LR_vars **LR, Fibroblast **FB, int **t
 		else
 		{
 			//G_B = 6.9e-3
-			/*(*V)[i] = -60.;
+            (*V)[i] = -60.;
 			(*FB)[i].O_shkr = 0.;
 			(*FB)[i].C0 = 9.11e-1;
 			(*FB)[i].C1 = 8.57e-2;
 			(*FB)[i].C2 = 3.02e-3;
 			(*FB)[i].C3 = 4.74e-5;
-			(*FB)[i].C4 = 2.79e-7;*/
+            (*FB)[i].C4 = 2.79e-7;
 
 			//G_B = 10*6.9e-3
-			(*V)[i] = -24.5;
-			(*FB)[i].C0=0.176258;
-			(*FB)[i].C1=0.367597;
-			(*FB)[i].C2=0.287479;
-			(*FB)[i].C3=0.0998994;
-			(*FB)[i].C4=0.0129962;
-			(*FB)[i].O_shkr = 0.0555375;
+//			(*V)[i] = -24.5;
+//			(*FB)[i].C0=0.176258;
+//			(*FB)[i].C1=0.367597;
+//			(*FB)[i].C2=0.287479;
+//			(*FB)[i].C3=0.0998994;
+//			(*FB)[i].C4=0.0129962;
+//            (*FB)[i].O_shkr = 0.0555375;
+
+            (*FB)[i].Iext = 0;
 		}
 	}
 
@@ -106,24 +108,25 @@ std::vector<double> SolveEquations(double MaxTime, double *V, double *Vc, LR_var
 #endif
     const int pacingPeriod = (int)(PacePeriod/dt);
     int paceCounter = 1;
-    const double IextAmplitude = 0;//50.0;
-    const int paceDuration = (int)(5.0/dt);
+    const double IextAmplitude = 20;
+    const int paceDuration = (int)(15.0/dt);
     std::vector<std::vector<double> > spikeMoments;
-    spikeMoments.resize(Size/2);
+    spikeMoments.resize(Size);
     const double threshold_low = -50;
     const double threshold_high = -20;
     std::vector<int> flag;
-    flag.resize(Size/2);
-    const int freqCalcOffset=(int)(500.0/dt);
+    flag.resize(Size);
+    const int freqCalcOffset=(int)(100.0/dt);
 
+    int paceoffset = (int)(500/dt);
     for (time=0; time<MT; time++)
     {
-        if (time > pacingPeriod*paceCounter){
+        if (time > pacingPeriod*paceCounter+paceoffset){
 
-            LR[0].Iext = IextAmplitude;
-            if (time > pacingPeriod*paceCounter+paceDuration){
+            FB[0].Iext = IextAmplitude;
+            if (time > paceoffset+pacingPeriod*paceCounter+paceDuration){
                 paceCounter++;
-                LR[0].Iext = 0;
+                FB[0].Iext = 0;
             }
         }
 
@@ -158,7 +161,7 @@ std::vector<double> SolveEquations(double MaxTime, double *V, double *Vc, LR_var
         }
 
         if (time > freqCalcOffset){
-            for (int j=0; j<Size/2; j++){
+            for (int j=0; j<Size; j++){
                 if (0 == flag[j] && V[j] > threshold_high){
                     flag[j] = 1;
                     spikeMoments[j].push_back(time*dt);
@@ -177,7 +180,7 @@ std::vector<double> SolveEquations(double MaxTime, double *V, double *Vc, LR_var
 
 
     std::vector<double> freq;
-    for (int i=0; i<Size/2; i++){
+    for (int i=0; i<Size; i++){
         std::vector<double> *sm = &spikeMoments[i];
         if (sm->size() >= 2)
             freq.push_back(1000.0/((sm->at(sm->size()-1)-sm->at(0))/(sm->size()-1)));
@@ -215,7 +218,7 @@ void OdeSolve(int i,  double *V, LR_vars *LR)
 void OdeSolve_fib(int i, double *V, Fibroblast *FB)
 {
 	double dV, dC0, dC1, dC2, dC3, dC4, dO;
-	dV = dt*Vf_function(V[i],FB[i].O_shkr);
+    dV = dt*Vf_function(V[i],FB[i].O_shkr,FB[i].Iext);
 	dC0 = dt*C0_function(FB[i].C0,FB[i].C1,V[i]);
 	dC1 = dt*C1_function(FB[i].C0,FB[i].C1,FB[i].C2,V[i]);
 	dC2 = dt*C2_function(FB[i].C1,FB[i].C2,FB[i].C3,V[i]);
@@ -248,33 +251,5 @@ inline int Substeps(double &vd)
 
 double Coupling(int i, double *V, int *type)
 {
-	int ln, rn;
-    double C = 0;
-    if (type[i] != 2){
-        if (i != 0) ln=i-1;
-        else ln=i;
-
-        if (i != 3*Size/4-1) rn=i+1;
-        else rn=i;
-
-        if (type[i] == 1)
-        {
-            C += D1*(V[ln]+V[rn]-2*V[i])+
-                    D2*(V[i+2*Size/4]-V[i]);
-        }
-        else if (type[i] == 0)
-        {
-            C += D1*(V[ln]+V[rn]-2*V[i]);
-        }
-    }else{
-        if (i != 3*Size/4) ln=i-1;
-        else ln=i;
-
-        if (i != Size-1) rn=i+1;
-        else rn=i;
-
-        C += D3*(V[ln]+V[rn]-2*V[i])+
-                D2*(V[i-2*Size/4]-V[i]);
-    }
-	return C;
+    return D*(V[i+1 % Size]-V[i]);
 }
