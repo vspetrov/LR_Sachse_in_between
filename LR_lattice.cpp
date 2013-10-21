@@ -1,9 +1,9 @@
 #include "LR_lattice.h"
 #include <unistd.h>
 #include <vector>
-
-#define SAVE_RST_FILE 1
-#define SHOW_PROGRESS 1
+#include <iostream>
+#define SAVE_RST_FILE 0
+#define SHOW_PROGRESS 0
 
 
 
@@ -103,7 +103,7 @@ void cleanUp(){
 }
 
 
-double SolveEquations(double MaxTime)
+double SolveEquations(double MaxTime, double moveValue)
 {
     int time;//time itarator
     int MT;
@@ -133,6 +133,11 @@ double SolveEquations(double MaxTime)
     int flag = 0;
     const int freqCalcOffset=(int)(500.0/dt);
     std::vector<double> spikeMoments;
+    std::pair<double,double> fibAmplitude(-1e10,1e10);
+
+    double cooldownCalcStart = -1;
+    double cooldownCalcEnd = -1;
+//    FILE *ofs = fopen("ts_m10.txt","w");
     for (time=0; time<MT; time++)
     {
 //        if (time > pacingPeriod*paceCounter){
@@ -144,8 +149,22 @@ double SolveEquations(double MaxTime)
 //            }
 //        }
 
-        if (time == (100/dt)){
-            V_fib[0] = -30;
+        if (time == (150/dt)){
+            V_fib[0] = moveValue;
+            cooldownCalcStart = time*dt;
+        }
+        if (time > (100/dt)){
+//            fprintf(ofs,"%g %g\n",time*dt-100,V_fib[0]);
+            if (V_fib[0] > fibAmplitude.first){
+                fibAmplitude.first = V_fib[0];
+            }
+            if (V_fib[0] < fibAmplitude.second){
+                fibAmplitude.second = V_fib[0];
+            }
+        }
+
+        if (cooldownCalcStart > 0 && cooldownCalcEnd < 0 && fabs(V_fib[0] - fibAmplitude.second)/fabs(fibAmplitude.second) < 0.01){
+            cooldownCalcEnd = time*dt;
         }
         for (int i=0; i<start_myo_size; i++){
             OdeSolve(i,V_myo_start,LR_myo_start);
@@ -234,14 +253,16 @@ double SolveEquations(double MaxTime)
     printf("writeCounter=%d\n",writeCounter);
 #endif
 
-
+//    fclose(ofs);
     double freq;
     const double refFreq = 1000.0/PacePeriod;
     if (spikeMoments.size() >= 2)
         freq = 1000.0/((spikeMoments[spikeMoments.size()-1]-spikeMoments[0])/(spikeMoments.size()-1));
     else
         freq = 0;
-    return freq/refFreq;
+
+    cleanUp();
+    return cooldownCalcEnd-cooldownCalcStart;
 }
 
 void OdeSolve(int i,  double *V, LR_vars *LR)

@@ -14,7 +14,7 @@ extern void Init_system();//initializing function
 void OdeSolve(int i, double *V, LR_vars *LR);
 void OdeSolve_fib(int i, double *V, Fibroblast *FB);
 inline int Substeps(double &vd);//devides step length due to value of Voltage (V)
-extern double SolveEquations(double MaxTime);//Solves the task
+extern double SolveEquations(double MaxTime, double moveValue);//Solves the task
 
 
 

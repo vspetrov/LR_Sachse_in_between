@@ -11,9 +11,25 @@
 #define MPI_2D_SEARCH 0
 int main(int argc, char *argv[])
 {
+
 #if MPI_2D_SEARCH == 0
-    Init_system();
-    std::cout << SolveEquations(400) << std::endl;
+    FILE *ofs = fopen("cooldown_times.m","w");
+    fprintf(ofs,"clear all;\ndata=[\n");
+    double moveMax = 10;
+    double moveMin = -70;
+    int moveSteps = 50;
+    for (int i=0; i<50; i++){
+        Init_system();
+        double move = moveMin+(moveMax-moveMin)/(moveSteps-1)*i;
+        double am = SolveEquations(400, move);
+        fprintf(ofs,"%g %g\n",move,am);
+        std::cout << i << std::endl;
+    }
+    fprintf(ofs,"];\nplot(data(:,1),data(:,2),'bo-');\nxlabel('V_{ini}, mV');\nylabel('Response Amplitude, mV');\n");
+    fclose(ofs);
+
+//    Init_system();
+//    SolveEquations(400, -10);
 #else
     int size, rank;
     MPI_Init(&argc,&argv);
