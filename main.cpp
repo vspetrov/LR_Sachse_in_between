@@ -13,19 +13,25 @@ int main(int argc, char *argv[])
 {
 
 #if MPI_2D_SEARCH == 0
-    FILE *ofs = fopen("cooldown_times.m","w");
-    fprintf(ofs,"clear all;\ndata=[\n");
-    double moveMax = 10;
-    double moveMin = -70;
-    int moveSteps = 50;
-    for (int i=0; i<50; i++){
-        Init_system();
-        double move = moveMin+(moveMax-moveMin)/(moveSteps-1)*i;
-        double am = SolveEquations(400, move);
-        fprintf(ofs,"%g %g\n",move,am);
-        std::cout << i << std::endl;
+    FILE *ofs = fopen("th_d2_f.txt","w");
+    for (D2=0; D2<2.0; D2+=0.01){
+        double move;
+        bool found = 0;
+        for (move=-60; move<10; move+=0.1){
+            Init_system();
+            std::pair<double,double> am = SolveEquations(400, move, false);
+            if (am.first - move > 5){
+                found = true;
+                break;
+            }
+
+        }
+
+        if (found){
+            fprintf(ofs,"%g %g\n",D2,move);
+        }
+        std::cout << D2 << std::endl;
     }
-    fprintf(ofs,"];\nplot(data(:,1),data(:,2),'bo-');\nxlabel('V_{ini}, mV');\nylabel('Response Amplitude, mV');\n");
     fclose(ofs);
 
 //    Init_system();

@@ -103,7 +103,7 @@ void cleanUp(){
 }
 
 
-double SolveEquations(double MaxTime, double moveValue)
+std::pair<double, double> SolveEquations(double MaxTime, double moveValue, bool checkMyo)
 {
     int time;//time itarator
     int MT;
@@ -133,7 +133,7 @@ double SolveEquations(double MaxTime, double moveValue)
     int flag = 0;
     const int freqCalcOffset=(int)(500.0/dt);
     std::vector<double> spikeMoments;
-    std::pair<double,double> fibAmplitude(-1e10,1e10);
+    std::pair<double,double> Amplitude(-1e10,1e10);
 
     double cooldownCalcStart = -1;
     double cooldownCalcEnd = -1;
@@ -150,20 +150,26 @@ double SolveEquations(double MaxTime, double moveValue)
 //        }
 
         if (time == (150/dt)){
-            V_fib[0] = moveValue;
+            if (checkMyo)
+                V_myo_extra[0] = moveValue;
+            else
+                V_fib[0] = moveValue;
             cooldownCalcStart = time*dt;
         }
         if (time > (100/dt)){
 //            fprintf(ofs,"%g %g\n",time*dt-100,V_fib[0]);
-            if (V_fib[0] > fibAmplitude.first){
-                fibAmplitude.first = V_fib[0];
+            double v;
+            if (checkMyo) v = V_myo_extra[0];
+            else v = V_fib[0];
+            if (v > Amplitude.first){
+                Amplitude.first = v;
             }
-            if (V_fib[0] < fibAmplitude.second){
-                fibAmplitude.second = V_fib[0];
+            if (v < Amplitude.second){
+                Amplitude.second = v;
             }
         }
 
-        if (cooldownCalcStart > 0 && cooldownCalcEnd < 0 && fabs(V_fib[0] - fibAmplitude.second)/fabs(fibAmplitude.second) < 0.01){
+        if (cooldownCalcStart > 0 && cooldownCalcEnd < 0 && fabs(V_fib[0] - Amplitude.second)/fabs(Amplitude.second) < 0.01){
             cooldownCalcEnd = time*dt;
         }
         for (int i=0; i<start_myo_size; i++){
@@ -262,7 +268,7 @@ double SolveEquations(double MaxTime, double moveValue)
         freq = 0;
 
     cleanUp();
-    return cooldownCalcEnd-cooldownCalcStart;
+    return Amplitude;
 }
 
 void OdeSolve(int i,  double *V, LR_vars *LR)
