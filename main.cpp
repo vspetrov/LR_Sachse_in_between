@@ -8,16 +8,12 @@
 #include <string>
 #include <sstream>
 
-#define MPI_2D_SEARCH 1
+#define MPI_2D_SEARCH 0
 int main(int argc, char *argv[])
 {
 #if MPI_2D_SEARCH == 0
-    double *V, *Vc;
-    LR_vars *LR;
-    Fibroblast *FB;
-    int *type;
-    Init_system(&V,&Vc,&LR,&FB,&type);
-    std::cout << SolveEquations(5000,V,Vc,LR,FB,type) << std::endl;
+    Init_system();
+    std::cout << SolveEquations(400) << std::endl;
 #else
     int size, rank;
     MPI_Init(&argc,&argv);
