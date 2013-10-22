@@ -1,0 +1,30 @@
+#!/usr/bin/gnuplot
+
+set xrange[-75:15]
+set yrange[0:200]
+set y2range[0:100]
+
+set ytics 40 nomirror tc lt 1
+set y2tics 20 nomirror tc lt 2
+
+set ylabel 'RT, ms'
+set y2label 'RA. mV'
+set xlabel 'V_{threshold}, mV'
+
+set style line 1 lt 1 lw 2 pt 6 lc rgb "blue"
+set style line 2 lt 1 lw 2 pt 4 lc rgb "green"
+
+set key right bottom
+set grid
+
+plot "cooldown_times.txt" u 1:2 w lp ls 1 axes x1y1 title 'relaxation time (RT)', \
+"excite_manifold.txt" u 1:2 w lp ls 2 axes x1y2 title 'response amplitude (RA)'
+
+
+set terminal pdf enhanced
+set output 'fig1.pdf'
+replot
+
+set terminal png enhanced
+set output 'fig1.png'
+replot
