@@ -30,6 +30,7 @@ struct Fibroblast{
 	double  C2;
 	double  C3;
 	double  C4;
+    double Iext;
 };
 
 struct Fibr_diff{
@@ -42,7 +43,7 @@ struct Fibr_diff{
 	double  C4;
 };
 
-double Vf_function(double V, double O_shkr);
+double Vf_function(double V, double O_shkr, double Iext);
 double C0_function(double C0, double C1, double V);
 double C1_function(double C0, double C1, double C2, double V);
 double C2_function(double C1, double C2, double C3, double V);

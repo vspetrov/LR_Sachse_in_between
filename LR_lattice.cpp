@@ -2,18 +2,18 @@
 #include <unistd.h>
 #include <vector>
 #include <iostream>
-#define SAVE_RST_FILE 0
-#define SHOW_PROGRESS 0
+#define SAVE_RST_FILE 1
+#define SHOW_PROGRESS 1
 
 
 
-const int start_myo_size = 0;
-const int center_fib_size = 1;
-const int end_myo_size = 0;
+const int start_myo_size = 30;
+const int center_fib_size = 100;
+const int end_myo_size = 30;
 const int extra_myo_size = center_fib_size;
 
 double D1 = 0.8;
-double D2 = 1.5;
+double D2 = 0;
 double D3 = 0.;
 double PacePeriod = 500.0; //milliseconds
 
@@ -56,6 +56,8 @@ static void setFB(Fibroblast *fb){
 //    fb->C3=0.0998994;
 //    fb->C4=0.0129962;
 //    fb->O_shkr = 0.0555375;
+
+    fb->Iext = 0;
 }
 
 static void initMyo(double *V, LR_vars *lr, int size){
@@ -103,7 +105,7 @@ void cleanUp(){
 }
 
 
-std::pair<double, double> SolveEquations(double MaxTime, double moveValue, bool checkMyo)
+std::pair<double, double> SolveEquations(double MaxTime)
 {
     int time;//time itarator
     int MT;
@@ -135,32 +137,27 @@ std::pair<double, double> SolveEquations(double MaxTime, double moveValue, bool 
     std::vector<double> spikeMoments;
     std::pair<double,double> Amplitude(-1e10,1e10);
 
-    double cooldownCalcStart = -1;
-    double cooldownCalcEnd = -1;
 //    FILE *ofs = fopen("ts_m10.txt","w");
     for (time=0; time<MT; time++)
     {
-//        if (time > pacingPeriod*paceCounter){
+        if (time > pacingPeriod*paceCounter){
 
-//            LR_myo_start[0].Iext = IextAmplitude;
-//            if (time > pacingPeriod*paceCounter+paceDuration){
-//                paceCounter++;
-//                LR_myo_start[0].Iext = 0;
-//            }
-//        }
-
-        if (time == (150/dt)){
-            if (checkMyo)
-                V_myo_extra[0] = moveValue;
-            else
-                V_fib[0] = moveValue;
-            cooldownCalcStart = time*dt;
+//            FB[0].Iext = IextAmplitude;
+            LR_myo_start[0].Iext = IextAmplitude;
+            if (time > pacingPeriod*paceCounter+paceDuration){
+                paceCounter++;
+//                FB[0].Iext = 0;
+                LR_myo_start[0].Iext = 0;
+            }
         }
+
+        if (time == MT/2){
+            D2 = 1.5;
+        }
+
         if (time > (100/dt)){
 //            fprintf(ofs,"%g %g\n",time*dt-100,V_fib[0]);
-            double v;
-            if (checkMyo) v = V_myo_extra[0];
-            else v = V_fib[0];
+            double v = V_fib[0];
             if (v > Amplitude.first){
                 Amplitude.first = v;
             }
@@ -169,9 +166,7 @@ std::pair<double, double> SolveEquations(double MaxTime, double moveValue, bool 
             }
         }
 
-        if (cooldownCalcStart > 0 && cooldownCalcEnd < 0 && fabs(V_fib[0] - Amplitude.second)/fabs(Amplitude.second) < 0.01){
-            cooldownCalcEnd = time*dt;
-        }
+
         for (int i=0; i<start_myo_size; i++){
             OdeSolve(i,V_myo_start,LR_myo_start);
         }
@@ -299,7 +294,7 @@ void OdeSolve(int i,  double *V, LR_vars *LR)
 void OdeSolve_fib(int i, double *V, Fibroblast *FB)
 {
 	double dV, dC0, dC1, dC2, dC3, dC4, dO;
-	dV = dt*Vf_function(V[i],FB[i].O_shkr);
+    dV = dt*Vf_function(V[i],FB[i].O_shkr,FB[i].Iext);
 	dC0 = dt*C0_function(FB[i].C0,FB[i].C1,V[i]);
 	dC1 = dt*C1_function(FB[i].C0,FB[i].C1,FB[i].C2,V[i]);
 	dC2 = dt*C2_function(FB[i].C1,FB[i].C2,FB[i].C3,V[i]);
