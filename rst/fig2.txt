@@ -1,0 +1,30 @@
+#!/usr/bin/gnuplot
+
+# set xrange[-75:15]
+# set yrange[0:200]
+# set y2range[0:100]
+
+# set ytics 40 nomirror tc lt 1
+# set y2tics 20 nomirror tc lt 2
+
+set ylabel 'V_{threshold}, mv'
+
+set xlabel 'couling, d'
+
+set style line 1 lt 1 lw 2 pt 6 lc rgb "blue"
+set style line 2 lt 1 lw 2 pt 4 lc rgb "green"
+
+set key right bottom
+set grid
+
+plot "th_d2_f.txt" u 1:2 w lp ls 1 axes x1y1 title 'V_{thr:fib}', \
+"th_d2_m.txt" u 1:2 w lp ls 2 axes x1y1 title 'V_{thr:myo}'
+
+
+set terminal pdf enhanced
+set output 'fig2.pdf'
+replot
+
+set terminal png enhanced
+set output 'fig2.png'
+replot
