@@ -11,17 +11,31 @@
 #define MPI_2D_SEARCH 0
 int main(int argc, char *argv[])
 {
+
 #if MPI_2D_SEARCH == 0
-    double *V, *Vc;
-    LR_vars *LR;
-    Fibroblast *FB;
-    int *type;
-    Init_system(&V,&Vc,&LR,&FB,&type);
-    std::vector<double> freqs =  SolveEquations(5000,V,Vc,LR,FB,type);
-    for (int i=0; i<freqs.size(); i++){
-        std::cout << freqs[i] << " ";
+    FILE *ofs = fopen("th_d2_f.txt","w");
+    for (D2=0; D2<2.0; D2+=0.01){
+        double move;
+        bool found = 0;
+        for (move=-60; move<10; move+=0.1){
+            Init_system();
+            std::pair<double,double> am = SolveEquations(400, move, false);
+            if (am.first - move > 5){
+                found = true;
+                break;
+            }
+
+        }
+
+        if (found){
+            fprintf(ofs,"%g %g\n",D2,move);
+        }
+        std::cout << D2 << std::endl;
     }
-    std::cout << std::endl;
+    fclose(ofs);
+
+//    Init_system();
+//    SolveEquations(400, -10);
 #else
     int size, rank;
     MPI_Init(&argc,&argv);
