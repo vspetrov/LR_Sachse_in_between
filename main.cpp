@@ -13,29 +13,19 @@ int main(int argc, char *argv[])
 {
 
 #if MPI_2D_SEARCH == 0
-    FILE *ofs = fopen("th_d2_f.txt","w");
-    for (D2=0; D2<2.0; D2+=0.01){
-        double move;
-        bool found = 0;
-        for (move=-60; move<10; move+=0.1){
-            Init_system();
-            std::pair<double,double> am = SolveEquations(400, move, false);
-            if (am.first - move > 5){
-                found = true;
-                break;
-            }
-
-        }
-
-        if (found){
-            fprintf(ofs,"%g %g\n",D2,move);
-        }
-        std::cout << D2 << std::endl;
+    FILE *ofs = fopen("pace_response_f_d0.5.txt","w");
+    for (PacePeriod=80; PacePeriod<200+1e-10; PacePeriod+=2){
+        Init_system();
+        double f = SolveEquations(10000);
+        fprintf(ofs,"%g %g\n",1000.0/PacePeriod,1000.0/PacePeriod/f);
+        std::cout << PacePeriod << std::endl;
     }
     fclose(ofs);
 
+//    PacePeriod = 80;
 //    Init_system();
-//    SolveEquations(400, -10);
+//    SolveEquations(5000);
+
 #else
     int size, rank;
     MPI_Init(&argc,&argv);
