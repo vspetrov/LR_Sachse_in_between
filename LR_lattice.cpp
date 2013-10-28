@@ -4,12 +4,13 @@
 #include <iostream>
 #define SAVE_RST_FILE 0
 #define SHOW_PROGRESS 0
+#include <assert.h>
+#include <iterator>
+#include <algorithm>
 
-
-
-const int start_myo_size = 30;
-const int center_fib_size = 100;
-const int end_myo_size = 30;
+const int start_myo_size = 0;
+const int center_fib_size = 50;
+const int end_myo_size = 0;
 const int extra_myo_size = center_fib_size;
 
 double D1 = 0.8;
@@ -105,7 +106,7 @@ void cleanUp(){
 }
 
 
-double SolveEquations(double MaxTime)
+std::pair<double,double> SolveEquations(double MaxTime, double APDdelta)
 {
     int time;//time itarator
     int MT;
@@ -126,7 +127,6 @@ double SolveEquations(double MaxTime)
     int fd = open("rst.bin",O_CREAT | O_RDWR, S_IREAD | S_IWRITE);
 #endif
     const int pacingPeriod = (int)(PacePeriod/dt);
-    int paceCounter = 0;
     const double IextAmplitude = 30.0;
     const int paceDuration = (int)(5.0/dt);
 
@@ -139,21 +139,29 @@ double SolveEquations(double MaxTime)
     const int freqCalcOffset=(int)(0.0/dt);
     std::vector<std::vector<double> > spikeMoments;
     spikeMoments.resize(center_fib_size);
+    auto repolMoments(spikeMoments);
+    const int numPaces = 5;
+    const int extraSpaceMoment = (int)((numPaces-1)*pacingPeriod+pacingPeriod*APDdelta);
 
-//    FILE *ofs = fopen("ts_m10.txt","w");
+    std::vector<int> paceMoments;
+    for (int i=0; i<numPaces; i++){
+        paceMoments.push_back(i*pacingPeriod);
+    }
+    paceMoments.push_back(extraSpaceMoment);
+    auto pace = paceMoments.begin();
+
     for (time=0; time<MT; time++)
     {
-        if (time > pacingPeriod*paceCounter){
 
-//            FB[0].Iext = IextAmplitude;
-            LR_myo_start[0].Iext = IextAmplitude;
-            if (time > pacingPeriod*paceCounter+paceDuration){
-                paceCounter++;
-//                FB[0].Iext = 0;
-                LR_myo_start[0].Iext = 0;
+
+        if (pace != paceMoments.end()){
+            if (time == *pace) FB[0].Iext = IextAmplitude;
+            if (time == *pace+paceDuration)
+            {
+                FB[0].Iext = 0;
+                pace++;
             }
         }
-
         for (int i=0; i<start_myo_size; i++){
             OdeSolve(i,V_myo_start,LR_myo_start);
         }
@@ -235,8 +243,13 @@ double SolveEquations(double MaxTime)
 
                 if (1 == flag[i] && v < threshold_low){
                     flag[i]=0;
+                    repolMoments[i].push_back(time*dt);
                 }
             }
+        }
+
+        if (repolMoments.back().size() == numPaces+1){
+            break;
         }
     }
 #if SAVE_RST_FILE > 0
@@ -247,9 +260,17 @@ double SolveEquations(double MaxTime)
 //    fclose(ofs);
 
     cleanUp();
-    int last_spike = std::min(spikeMoments[0].size(),spikeMoments.back().size())-1;
-    if (last_spike < 0) return -1.0;
-    return center_fib_size/(spikeMoments.back()[last_spike]-spikeMoments[0][last_spike]);
+//    int last_spike = std::min(spikeMoments[0].size(),spikeMoments.back().size())-1;
+//    if (last_spike < 0) return -1.0;
+//    return center_fib_size/(spikeMoments.back()[last_spike]-spikeMoments[0][last_spike]);
+
+
+    auto *lsm = &spikeMoments.back();
+    auto *lrm = &repolMoments.back();
+
+    auto len = lsm->size();
+    assert(lrm->size() == len);
+    return std::pair<double,double>(lsm->at(len-1)-lrm->at(len-2),lrm->at(len-1)-lsm->at(len-1));
 }
 
 void OdeSolve(int i,  double *V, LR_vars *LR)

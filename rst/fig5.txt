@@ -1,0 +1,18 @@
+#!/usr/bin/env gnuplot
+
+
+# derivative functions.  Return 1/0 for first point, otherwise delta y or (delta y)/(delta x)
+d(y) = ($0 == 0) ? (y1 = y, 1/0) : (y2 = y1, y1 = y, y1-y2)
+# d2(x,y) = ($0 == 0) ? (x1 = x, y1 = y, 1/0) : (x2 = x1, x1 = x, y2 = y1, y1 = y, (y1-y2)/(x1-x2))
+
+set key bottom left Left reverse
+
+# offset for derivatives (half the x spacing)
+dx = 0.25
+
+#plot 'di_apd_chain50_d2_1.35_pbase500.txt' title 'data',
+plot 'di_apd_chain50_d2_1.35_pbase500.txt'   u ($1-dx):(d($2)) title '1-variable derivative'
+
+set term png
+set output "fig5.png"
+replot

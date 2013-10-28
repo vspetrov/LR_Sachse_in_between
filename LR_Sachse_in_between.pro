@@ -12,6 +12,7 @@ HEADERS += \
     LR_cell.h \
     Sachse_fibroblast.h
 
+QMAKE_CXXFLAGS = -std=c++0x
 QMAKE_CC = mpicc
 QMAKE_CXX = mpic++
 QMAKE_LINK = mpic++

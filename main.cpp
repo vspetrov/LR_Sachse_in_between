@@ -7,20 +7,45 @@
 #include <unistd.h>
 #include <string>
 #include <sstream>
-
+#include <vector>
 #define MPI_2D_SEARCH 0
 int main(int argc, char *argv[])
 {
 
 #if MPI_2D_SEARCH == 0
-    FILE *ofs=fopen("speed_30_100_30.txt","w");
-    for (D2=1.35; D2 <3; D2 += 0.05)    {
-        Init_system();
-        double speed =  SolveEquations(2000);
-        fprintf(ofs,"%g %g\n",D2,speed);
+
+    std::vector< std::vector<std::pair<double, double> > > rst;
+    std::vector<double> d2;
+    for (D2 = 1.35; D2 < 2; D2 += 0.05){
+        d2.push_back(D2);
+        std::vector<std::pair<double, double> > di_apd_curve;
+        for (double delta=0.325; delta <1; delta += 0.025)    {
+            Init_system();
+            auto DI_APD =  SolveEquations(5000, delta);
+            di_apd_curve.push_back(DI_APD);
+            //std::cout << "DI: " << DI_APD.first << std::endl;
+            //std::cout << "APD: " << DI_APD.second << std::endl;
+            //fprintf(ofs,"%g %g\n",DI_APD.first,DI_APD.second);
+        }
+        rst.push_back(di_apd_curve);
         std::cout << D2 << std::endl;
     }
-    fclose(ofs);
+
+    FILE *ofs=fopen("di_apd_chain50_d2_varied_pbase500.txt","w");
+    fprintf(ofs,"%d ",d2.size());
+    for (auto i=0; i<d2.size(); i++)
+        fprintf(ofs,"%g ",d2[i]);
+    fprintf(ofs,"\n");
+    for (auto i=0; i<rst.size(); i++){
+        fprintf(ofs,"%d ",rst[i].size());
+        for (auto j=0; j<rst[i].size(); j++)
+            fprintf(ofs,"%g ", rst[i][j].first);
+        fprintf(ofs,"\n");
+        fprintf(ofs,"%d ",rst[i].size());
+        for (auto j=0; j<rst[i].size(); j++)
+            fprintf(ofs,"%g ", rst[i][j].second);
+        fprintf(ofs,"\n");
+    }
 #else
     int size, rank;
     MPI_Init(&argc,&argv);
