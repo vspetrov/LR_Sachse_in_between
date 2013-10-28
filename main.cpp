@@ -13,8 +13,14 @@ int main(int argc, char *argv[])
 {
 
 #if MPI_2D_SEARCH == 0
-    Init_system();
-    SolveEquations(5000);
+    FILE *ofs=fopen("speed_30_100_30.txt","w");
+    for (D2=1.35; D2 <3; D2 += 0.05)    {
+        Init_system();
+        double speed =  SolveEquations(2000);
+        fprintf(ofs,"%g %g\n",D2,speed);
+        std::cout << D2 << std::endl;
+    }
+    fclose(ofs);
 #else
     int size, rank;
     MPI_Init(&argc,&argv);
@@ -67,7 +73,7 @@ int main(int argc, char *argv[])
         write(fd,Allrst,D1steps*D2steps*sizeof(double));
         FILE *ofs = fopen(octave_name.c_str(),"w");
         fprintf(ofs,
-                    "clear all;\n"
+                "clear all;\n"
                 "fd=fopen('%s','r');\n"
                 "D1steps=%d;\n"
                 "D2steps=%d;\n"

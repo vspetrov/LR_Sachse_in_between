@@ -2,8 +2,8 @@
 #include <unistd.h>
 #include <vector>
 #include <iostream>
-#define SAVE_RST_FILE 1
-#define SHOW_PROGRESS 1
+#define SAVE_RST_FILE 0
+#define SHOW_PROGRESS 0
 
 
 
@@ -13,7 +13,7 @@ const int end_myo_size = 30;
 const int extra_myo_size = center_fib_size;
 
 double D1 = 0.8;
-double D2 = 0;
+double D2 = 1.35;
 double D3 = 0.;
 double PacePeriod = 500.0; //milliseconds
 
@@ -105,7 +105,7 @@ void cleanUp(){
 }
 
 
-std::pair<double, double> SolveEquations(double MaxTime)
+double SolveEquations(double MaxTime)
 {
     int time;//time itarator
     int MT;
@@ -126,16 +126,19 @@ std::pair<double, double> SolveEquations(double MaxTime)
     int fd = open("rst.bin",O_CREAT | O_RDWR, S_IREAD | S_IWRITE);
 #endif
     const int pacingPeriod = (int)(PacePeriod/dt);
-    int paceCounter = 1;
-    const double IextAmplitude = 50.0;
+    int paceCounter = 0;
+    const double IextAmplitude = 30.0;
     const int paceDuration = (int)(5.0/dt);
 
-    const double threshold_low = -50;
-    const double threshold_high = -20;
-    int flag = 0;
-    const int freqCalcOffset=(int)(500.0/dt);
-    std::vector<double> spikeMoments;
-    std::pair<double,double> Amplitude(-1e10,1e10);
+    const double threshold_low = -60;
+    const double threshold_high = -30;
+    std::vector<int> flag;
+    flag.resize(center_fib_size);
+    for (int i=0; i<center_fib_size; i++)
+        flag[i] = 0;
+    const int freqCalcOffset=(int)(0.0/dt);
+    std::vector<std::vector<double> > spikeMoments;
+    spikeMoments.resize(center_fib_size);
 
 //    FILE *ofs = fopen("ts_m10.txt","w");
     for (time=0; time<MT; time++)
@@ -150,22 +153,6 @@ std::pair<double, double> SolveEquations(double MaxTime)
                 LR_myo_start[0].Iext = 0;
             }
         }
-
-        if (time == MT/2){
-            D2 = 1.5;
-        }
-
-        if (time > (100/dt)){
-//            fprintf(ofs,"%g %g\n",time*dt-100,V_fib[0]);
-            double v = V_fib[0];
-            if (v > Amplitude.first){
-                Amplitude.first = v;
-            }
-            if (v < Amplitude.second){
-                Amplitude.second = v;
-            }
-        }
-
 
         for (int i=0; i<start_myo_size; i++){
             OdeSolve(i,V_myo_start,LR_myo_start);
@@ -234,18 +221,21 @@ std::pair<double, double> SolveEquations(double MaxTime)
 #if SHOW_PROGRESS > 0
         if (time/progressStep*progressStep == time){
             printf("Progress: %d%%\n",time/progressStep);
+            fflush(stdout);
         }
 #endif
 
         if (time > freqCalcOffset){
-            double v = V_myo_end[end_myo_size-1];
-            if (0 == flag && v > threshold_high){
-                flag = 1;
-                spikeMoments.push_back(time*dt);
-            }
+            for (int i=0; i<center_fib_size; i++){
+                double v = V_fib[i];
+                if (0 == flag[i] && v > threshold_high){
+                    flag[i] = 1;
+                    spikeMoments[i].push_back(time*dt);
+                }
 
-            if (1 == flag && v < threshold_low){
-                flag=0;
+                if (1 == flag[i] && v < threshold_low){
+                    flag[i]=0;
+                }
             }
         }
     }
@@ -255,15 +245,11 @@ std::pair<double, double> SolveEquations(double MaxTime)
 #endif
 
 //    fclose(ofs);
-    double freq;
-    const double refFreq = 1000.0/PacePeriod;
-    if (spikeMoments.size() >= 2)
-        freq = 1000.0/((spikeMoments[spikeMoments.size()-1]-spikeMoments[0])/(spikeMoments.size()-1));
-    else
-        freq = 0;
 
     cleanUp();
-    return Amplitude;
+    int last_spike = std::min(spikeMoments[0].size(),spikeMoments.back().size())-1;
+    if (last_spike < 0) return -1.0;
+    return center_fib_size/(spikeMoments.back()[last_spike]-spikeMoments[0][last_spike]);
 }
 
 void OdeSolve(int i,  double *V, LR_vars *LR)
