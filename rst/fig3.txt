@@ -1,0 +1,26 @@
+#!/usr/bin/gnuplot
+
+set xrange[1.2:3.2]
+# set yrange[0:200]
+# set y2range[0:100]
+
+# set ytics 40 nomirror tc lt 1
+# set y2tics 20 nomirror tc lt 2
+
+set ylabel 'Speed, ms^{-1}'
+
+set xlabel 'couling, d2'
+
+set style line 1 lt 1 lw 2 pt 6 lc rgb "blue"
+
+set grid
+
+plot "speed_30_100_30.txt" u 1:2 w lp ls 1 axes x1y1 title 'Speed'
+
+set terminal pdf enhanced
+set output 'fig3.pdf'
+replot
+
+set terminal png enhanced
+set output 'fig3.png'
+replot
