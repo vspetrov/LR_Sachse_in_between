@@ -1,5 +1,6 @@
 clear all;
 close("all");
+clf;
 input_file = fopen('di_apd_chain50_d2_varied_pbase500.txt');
 number_of_lines = fskipl(input_file, Inf);
 frewind(input_file);
@@ -40,21 +41,50 @@ for i=1:(number_of_lines-1)/2,
     data(i,:)=apd_i;
 end
 
-subplot(2,1,1);
+subplot(2,2,1:2);
 [D2,DI] = meshgrid(d2,di_i);
 surf(D2,DI,data');
+shading faceted
 ylim([50 450]);
 view(90,-90);
-shading flat;
-colorbar;
+set(gca(),'xtick',[1.3 1.65 1.95]);
+set(gca(),'ztick',[]);
+set(gca(),'ytick',[100 250 400]);
+cbh = colorbar;
+set(cbh,'ytick',[45 55 65 75 85]);
+xlabel('DI, ms')
+ylabel('D2')
+title('APD(DI)')
 
-subplot(2,1,2);
+subplot(2,2,3);
 [D2d,DId] = meshgrid(d2,di_i(1:length(di_i)-1));
-
 surf(D2d,DId,derivs');
-shading flat;
-xlim([50 450]);
-hold;
-contour(D2d,DId,derivs',[1, 1],'g');
+shading faceted
+ylim([50 450]);
 view(90,-90);
+set(gca(),'xtick',[1.3 1.65 1.95]);
+set(gca(),'ztick',[]);
+set(gca(),'ytick',[100 250 400]);
 colorbar;
+xlabel('DI, ms')
+ylabel('D2')
+title('d/d(DI) APD(DI)')
+
+subplot(2,2,4);
+surf(D2d,DId,sign(derivs-1)');
+shading faceted
+ylim([50 450]);
+view(90,-90);
+set(gca(),'xtick',[1.3 1.65 1.95]);
+set(gca(),'ztick',[]);
+set(gca(),'ytick',[100 250 400]);
+colorbar;
+xlabel('DI, ms')
+ylabel('D2')
+title('sign(d/d(DI) APD(DI) - 1)')
+
+
+
+
+
+
