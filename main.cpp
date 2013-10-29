@@ -16,10 +16,10 @@ int main(int argc, char *argv[])
 
     std::vector< std::vector<std::pair<double, double> > > rst;
     std::vector<double> d2;
-    for (D2 = 1.35; D2 < 2; D2 += 0.05){
+    for (D2 = 1.35; D2 < 2+1e-10; D2 += 0.025){
         d2.push_back(D2);
         std::vector<std::pair<double, double> > di_apd_curve;
-        for (double delta=0.325; delta <1; delta += 0.025)    {
+        for (double delta=0.325; delta <1; delta += 0.005)    {
             Init_system();
             auto DI_APD =  SolveEquations(5000, delta);
             di_apd_curve.push_back(DI_APD);
