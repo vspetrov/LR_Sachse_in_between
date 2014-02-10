@@ -1,6 +1,8 @@
 #ifndef _FIBROBLAST_H
 #define _FIBROBLAST_H
 #include "math.h"
+
+#include "LR_cell.h"
 const double Cf = 4.5;
 const double R = 8.31;
 const double F = 9.65e1;
@@ -30,6 +32,11 @@ struct Fibroblast{
 	double  C2;
 	double  C3;
 	double  C4;
+    double *V;
+    double dV;
+    double V_extra;
+    LR_vars extra;
+    int id;
 };
 
 struct Fibr_diff{
@@ -40,6 +47,8 @@ struct Fibr_diff{
 	double  C2;
 	double  C3;
 	double  C4;
+    double V_extra;
+    LR_vars extra;
 };
 
 double Vf_function(double V, double O_shkr);

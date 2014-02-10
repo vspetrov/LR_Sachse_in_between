@@ -16,7 +16,7 @@ double Ist = 0;
 
 
 
-double VFunction(int i, double *V, LR_vars *LR) //find V for the Cell numbered CN_c, CN_r
+double VFunction(double V, LR_vars *LR) //find V for the Cell numbered CN_c, CN_r
 {
 	double i_Na;
 	double i_si;
@@ -29,37 +29,37 @@ double VFunction(int i, double *V, LR_vars *LR) //find V for the Cell numbered C
 	double i_Kp;
 	double Kp;
 	double i_b;
-	
+
 	//find fast sodium current I_Na
-	i_Na=G_Na*LR[i].m*LR[i].m*LR[i].m*LR[i].h*LR[i].j*(V[i]-E_Na);
-	
+	i_Na=G_Na*LR->m*LR->m*LR->m*LR->h*LR->j*(V-E_Na);
+
 	//find slow-inward current I_si
-	E_si=7.7-13.0287*log(LR[i].Cai);
-	i_si=G_si*LR[i].d*LR[i].f*(V[i]-E_si);
+	E_si=7.7-13.0287*log(LR->Cai);
+	i_si=G_si*LR->d*LR->f*(V-E_si);
 
 	//find time-dependent potassium current I_K
-	if (V[i]>-100.)
-		Xi=2.837*(exp(0.04*(V[i]+77.))-1.)/((V[i]+77.)*exp(0.04*(V[i]+35.)));
+	if (V>-100.)
+		Xi=2.837*(exp(0.04*(V+77.))-1.)/((V+77.)*exp(0.04*(V+35.)));
 	else
 		Xi=1.;
-	i_K=G_K*LR[i].X*Xi*(V[i]-E_k);
-	
-	//find time-independent potassium current I_K1
-	alpha_Kl=1.02/(1+exp(0.2385*(V[i]-E_Kl-59.215)));
-	betta_Kl=(0.49124*exp(0.08032*(V[i]-E_Kl+5.476))+
-			exp(0.06175*(V[i]-E_Kl-594.31)))/(1.+exp(-0.5143*(V[i]-E_Kl+4.753)));
-	Kl_inf=alpha_Kl/(alpha_Kl+betta_Kl);
-	i_Kl=LR[i].G_K1*Kl_inf*(V[i]-E_Kl);
-		
-	//find platou potassium current I_Kp
-	Kp=1./(1.+exp((7.488-V[i])/5.98));
-	i_Kp=0.0183*Kp*(V[i]-E_Kl);
-		
-	//find background current I_b
-	
-	i_b=G_b*(V[i]+59.87);
+	i_K=G_K*LR->X*Xi*(V-E_k);
 
-    return -(i_Na+i_si+i_K+i_Kl+i_Kp+i_b)+LR[i].Iext;
+	//find time-independent potassium current I_K1
+	alpha_Kl=1.02/(1+exp(0.2385*(V-E_Kl-59.215)));
+	betta_Kl=(0.49124*exp(0.08032*(V-E_Kl+5.476))+
+			exp(0.06175*(V-E_Kl-594.31)))/(1.+exp(-0.5143*(V-E_Kl+4.753)));
+	Kl_inf=alpha_Kl/(alpha_Kl+betta_Kl);
+	i_Kl=LR->G_K1*Kl_inf*(V-E_Kl);
+
+	//find platou potassium current I_Kp
+	Kp=1./(1.+exp((7.488-V)/5.98));
+	i_Kp=0.0183*Kp*(V-E_Kl);
+
+	//find background current I_b
+
+	i_b=G_b*(V+59.87);
+
+    return -(i_Na+i_si+i_K+i_Kl+i_Kp+i_b)+LR->Iext;
 }
 
 double mFunction(double V, double mG, double &delta_t)
@@ -78,7 +78,7 @@ double hFunction(double V, double hG, double &delta_t)
 	double p,q;
 	double alpha, betta;
 
-	if (V < -40.) 
+	if (V < -40.)
 		{
 			alpha=0.135*exp((80.+V)/-6.8);
 			betta=3.56*exp(0.079*V)+3.1e5*exp(0.35*V);
@@ -97,7 +97,7 @@ double jFunction(double V, double jG, double &delta_t)
 {
 	double p,q;
 	double alpha, betta;
-	if (V < -40.) 
+	if (V < -40.)
 		{
 			alpha=(-1.2714e5*exp(0.2444*V)-3.474e-5*exp(-0.04391*V))*
 			(V+37.78)/(1+exp(0.311*(V+79.23)));

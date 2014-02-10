@@ -1,32 +1,45 @@
 #include "LR_lattice.h"
-#include <unistd.h>
 #include <vector>
 #include <iostream>
+#include <opencv/cv.h>
+#include <opencv/highgui.h>
 #define SAVE_RST_FILE 0
-#define SHOW_PROGRESS 0
+#define SHOW_PROGRESS 1
 
 
 
 const int start_myo_size = 0;
-const int center_fib_size = 1;
-const int end_myo_size = 0;
-const int extra_myo_size = center_fib_size;
 
-double D1 = 0.8;
+
+double D1 = 0.5;
 double D2 = 1.5;
 double D3 = 0.;
 double PacePeriod = 500.0; //milliseconds
 
-static double *V_myo_start = NULL;
-static double *V_myo_end = NULL;
-static double *V_myo_extra = NULL;
-static double *V_fib = NULL;
 
+static double *V;
+static int *type;
 
-static LR_vars* LR_myo_start = NULL;
-static LR_vars* LR_myo_end = NULL;
-static LR_vars* LR_myo_extra = NULL;
+const int lattice_size=100;
+typedef struct obstacle_position_t{
+    int i;
+    int j;
+    int R;
+} obstacle_position_t;
+const obstacle_position_t obstacle_position = {lattice_size/2,lattice_size/2,
+                                               lattice_size/5};
+
+int myo_num=0;
+int extra_num=0;
+
+static LR_vars* LR_myo = NULL;
 static Fibroblast* FB = NULL;
+
+enum{
+    LR_CELL,
+    FIB_CELL=255,
+    LAST_CELL
+};
 
 static void setLR(LR_vars *lr){
     lr->m = 0.00231609;
@@ -70,250 +83,186 @@ static void initFib(double *V, Fibroblast *fb, int size){
         setFB(&fb[i]);
     }
 }
+static double *V_draw;
+static void displayLattice(){
+    memcpy(V_draw,V,sizeof(double)*lattice_size*lattice_size);
+    cv::Mat m(cv::Size(lattice_size,lattice_size),CV_64FC1,(void*)V_draw);
+    cv::Mat show;
+    cv::normalize(m,m,0,255,cv::NORM_MINMAX);
+    m.convertTo(show,CV_8UC1);
+    cv::cvtColor(show,show,CV_GRAY2BGR);
+    cv::resize(show,show,cv::Size(400,400));
+    cv::imshow("show",show);
+    cv::waitKey(1);
+}
 void Init_system()
 {
-    V_myo_start   = new double[start_myo_size];
-    V_myo_end   = new double[end_myo_size];
-    V_myo_extra   = new double[extra_myo_size];
-    V_fib   = new double[center_fib_size];
+    std::cout << "Entering Init system" << std::endl;
+    type = new int[lattice_size*lattice_size];
+    for (int i=0; i<lattice_size; i++){
+        for (int j=0; j<lattice_size; j++){
+            if (((i-obstacle_position.i)*(i-obstacle_position.i)+
+                (j-obstacle_position.j)*(j-obstacle_position.j) <
+                 obstacle_position.R*obstacle_position.R)){
+                type[i*lattice_size+j] = FIB_CELL;
+                extra_num++;
+            } else {
+                type[i*lattice_size+j] = LR_CELL;
+                myo_num++;
+            }
+        }
+    }
 
-    LR_myo_start  = new LR_vars[start_myo_size];
-    LR_myo_end  = new LR_vars[end_myo_size];
-    LR_myo_extra  = new LR_vars[extra_myo_size];
+    V = new double[lattice_size*lattice_size];
+    V_draw = new double[lattice_size*lattice_size];
+    FB = new Fibroblast[extra_num];
+    LR_myo = new LR_vars[myo_num];
+    int myo_counter = 0, extra_counter = 0;
+    for (int i=0; i<lattice_size*lattice_size; i++){
+        if (type[i] == LR_CELL){
+            V[i] = -80;
+            setLR(&LR_myo[myo_counter]);
+            LR_myo[myo_counter].V = &V[i];
+            LR_myo[myo_counter].id = i;
+            myo_counter++;
+        }else{
+            V[i] = -60;
+            setFB(&FB[extra_counter]);
+            FB[extra_counter].V = &V[i];
+            FB[extra_counter].id = i;
+            FB[extra_counter].V_extra = -80;
+            setLR(&FB[extra_counter].extra);
+            FB[extra_counter].extra.V = &FB[extra_counter].V_extra;
+            extra_counter++;
+        }
+    }
+    for (int i=0; i<lattice_size; i++){
+        V[i] = -30;
+    }
+    displayLattice();
 
-    FB  = new Fibroblast[center_fib_size];
-
-    initMyo(V_myo_start,LR_myo_start,start_myo_size);
-    initMyo(V_myo_end,LR_myo_end,end_myo_size);
-    initMyo(V_myo_extra,LR_myo_extra,extra_myo_size);
-
-    initFib(V_fib,FB,center_fib_size);
+#if 0
+    cv::Mat m(cv::Size(lattice_size,lattice_size),CV_32SC1,(void*)type);
+    cv::Mat show;
+    m.convertTo(show,CV_8UC1);
+    cv::cvtColor(show,show,CV_GRAY2BGR);
+    cv::imshow("show",show);
+    cv::waitKey(0);
+#endif
 }
 
 void cleanUp(){
-    delete[] V_myo_start;
-    delete[] V_myo_end;
-    delete[] V_myo_extra;
-    delete[] V_fib;
-
-    delete[] LR_myo_start;
-    delete[] LR_myo_end;
-    delete[] LR_myo_extra;
-    delete[] FB;
+    delete[] type;
 }
 
 
-std::pair<double, double> SolveEquations(double MaxTime, double moveValue, bool checkMyo)
+int SolveEquations(double MaxTime)
 {
     int time;//time itarator
     int MT;
     MT=int(MaxTime/dt);
+
     double write_interval = 2.0;
     int writeInterval = (int)(write_interval/dt);
     int writeCounter = 0;
-
     int progressStep = (int)(MaxTime/100.0/dt);
 
-    double *dV_myo_start = new double[start_myo_size];
-    double *dV_myo_end   = new double[end_myo_size];
-    double *dV_myo_extra   = new double[extra_myo_size];
-    double *dV_fib   = new double[center_fib_size];
+    double *dV = new double[lattice_size*lattice_size];
 
-
-#if SAVE_RST_FILE > 0
-    int fd = open("rst.bin",O_CREAT | O_RDWR, S_IREAD | S_IWRITE);
-#endif
-    const int pacingPeriod = (int)(PacePeriod/dt);
-    int paceCounter = 1;
-    const double IextAmplitude = 50.0;
-    const int paceDuration = (int)(5.0/dt);
-
-    const double threshold_low = -50;
-    const double threshold_high = -20;
-    int flag = 0;
-    const int freqCalcOffset=(int)(500.0/dt);
-    std::vector<double> spikeMoments;
-    std::pair<double,double> Amplitude(-1e10,1e10);
-
-    double cooldownCalcStart = -1;
-    double cooldownCalcEnd = -1;
-//    FILE *ofs = fopen("ts_m10.txt","w");
     for (time=0; time<MT; time++)
     {
-//        if (time > pacingPeriod*paceCounter){
-
-//            LR_myo_start[0].Iext = IextAmplitude;
-//            if (time > pacingPeriod*paceCounter+paceDuration){
-//                paceCounter++;
-//                LR_myo_start[0].Iext = 0;
-//            }
-//        }
-
-        if (time == (150/dt)){
-            if (checkMyo)
-                V_myo_extra[0] = moveValue;
-            else
-                V_fib[0] = moveValue;
-            cooldownCalcStart = time*dt;
-        }
-        if (time > (100/dt)){
-//            fprintf(ofs,"%g %g\n",time*dt-100,V_fib[0]);
-            double v;
-            if (checkMyo) v = V_myo_extra[0];
-            else v = V_fib[0];
-            if (v > Amplitude.first){
-                Amplitude.first = v;
-            }
-            if (v < Amplitude.second){
-                Amplitude.second = v;
+        for (int i=0; i<lattice_size; i++){
+            for (int j=0; j<lattice_size; j++){
+                int ln, rn, tn, bn;
+                ln = i - 1 < 0 ? 0 : i - 1;
+                rn = i + 1 > lattice_size - 1? lattice_size - 1 : i + 1;
+                tn = j - 1 < 0 ? 0 : j - 1;
+                bn = j + 1 > lattice_size - 1? lattice_size - 1 : j + 1;
+                dV[i*lattice_size+j] =
+                    dt*D1*(V[ln*lattice_size+j]+V[rn*lattice_size+j]
+                           +V[i*lattice_size+tn]+V[i*lattice_size+bn]
+                           - 4*V[i*lattice_size+j]);
             }
         }
 
-        if (cooldownCalcStart > 0 && cooldownCalcEnd < 0 && fabs(V_fib[0] - Amplitude.second)/fabs(Amplitude.second) < 0.01){
-            cooldownCalcEnd = time*dt;
-        }
-        for (int i=0; i<start_myo_size; i++){
-            OdeSolve(i,V_myo_start,LR_myo_start);
-        }
-        for (int i=0; i<end_myo_size; i++){
-            OdeSolve(i,V_myo_end,LR_myo_end);
-        }
-        for (int i=0; i<extra_myo_size; i++){
-            OdeSolve(i,V_myo_extra,LR_myo_extra);
-        }
-        for (int i=0; i<center_fib_size; i++){
-            OdeSolve_fib(i,V_fib,FB);
+        for (int i=0; i<myo_num; i++){
+            OdeSolve(LR_myo[i].V,&LR_myo[i]);
         }
 
-        for (int i=0; i<start_myo_size; i++){
-            dV_myo_start[i] = 0;
-            if (i > 0) dV_myo_start[i] += D1*(V_myo_start[i-1]-V_myo_start[i]);
-            if (i <start_myo_size-1) dV_myo_start[i] += D1*(V_myo_start[i+1]-V_myo_start[i]);
-            if (i == start_myo_size-1) dV_myo_start[i] += D1*(V_fib[0]-V_myo_start[i]);
-        }
-        for (int i=0; i<end_myo_size; i++){
-            dV_myo_end[i] = 0;
-            if (i > 0) dV_myo_end[i] += D1*(V_myo_end[i-1]-V_myo_end[i]);
-            if (i <end_myo_size-1) dV_myo_end[i] += D1*(V_myo_end[i+1]-V_myo_end[i]);
-            if (i == 0) dV_myo_end[i] += D1*(V_fib[center_fib_size-1]-V_myo_end[i]);
-        }
-        for (int i=0; i<extra_myo_size; i++){
-            dV_myo_extra[i] = D2*(V_fib[i]-V_myo_extra[i]);
-            if (i > 0) dV_myo_extra[i] += D3*(V_myo_extra[i-1]-V_myo_extra[i]);
-            if (i <extra_myo_size-1) dV_myo_extra[i] += D3*(V_myo_extra[i+1]-V_myo_extra[i]);
+        for (int i=0; i<extra_num; i++){
+            LR_vars *lr_extra = &FB[i].extra;
+            double dv = dt*D2*(*lr_extra->V - *FB[i].V);
+            OdeSolve_fib(FB[i].V,&FB[i]);
+            OdeSolve(lr_extra->V,lr_extra);
+            lr_extra->dV = dv;
+            FB[i].dV = -dv;
         }
 
-        for (int i=0; i<center_fib_size; i++){
-            dV_fib[i] = D2*(V_myo_extra[i] - V_fib[i]);
-            if (i > 0) dV_fib[i] += D1*(V_fib[i-1]-V_fib[i]);
-            if (i <center_fib_size-1) dV_fib[i] += D1*(V_fib[i+1]-V_fib[i]);
-            if (start_myo_size > 0)
-                if (i == 0) dV_fib[i] += D1*(V_myo_start[start_myo_size-1]-V_fib[i]);
-            if (end_myo_size > 0)
-                if (i == center_fib_size-1) dV_fib[i] += D1*(V_myo_end[0]-V_fib[i]);
+        for (int i=0; i<myo_num; i++){
+            *LR_myo[i].V += dV[LR_myo[i].id];
         }
 
-        for (int i=0; i<start_myo_size; i++){
-            V_myo_start[i] += dt*dV_myo_start[i];
+        for (int i=0; i<extra_num; i++){
+            *FB[i].V += FB[i].dV + dV[FB[i].id];
+            LR_vars *lr_extra = &FB[i].extra;
+            *lr_extra->V += lr_extra->dV;
         }
-        for (int i=0; i<end_myo_size; i++){
-            V_myo_end[i] += dt*dV_myo_end[i];
-        }
-        for (int i=0; i<extra_myo_size; i++){
-            V_myo_extra[i] += dt*dV_myo_extra[i];
-        }
-        for (int i=0; i<center_fib_size; i++){
-            V_fib[i] += dt*dV_fib[i];
-        }
-
-
-#if SAVE_RST_FILE > 0
-        if (time >= writeInterval*writeCounter){
-            write(fd,V_myo_start,start_myo_size*sizeof(double));
-            write(fd,V_fib,center_fib_size*sizeof(double));
-            write(fd,V_myo_end,end_myo_size*sizeof(double));
-            writeCounter++;
-        }
-#endif
 
 #if SHOW_PROGRESS > 0
         if (time/progressStep*progressStep == time){
-            printf("Progress: %d%%\n",time/progressStep);
+            printf("Progress: %d%%\n",time/progressStep);fflush(stdout);
         }
+        displayLattice();
 #endif
 
-        if (time > freqCalcOffset){
-            double v = V_myo_end[end_myo_size-1];
-            if (0 == flag && v > threshold_high){
-                flag = 1;
-                spikeMoments.push_back(time*dt);
-            }
-
-            if (1 == flag && v < threshold_low){
-                flag=0;
-            }
-        }
     }
-#if SAVE_RST_FILE > 0
-    close(fd);
-    printf("writeCounter=%d\n",writeCounter);
-#endif
-
-//    fclose(ofs);
-    double freq;
-    const double refFreq = 1000.0/PacePeriod;
-    if (spikeMoments.size() >= 2)
-        freq = 1000.0/((spikeMoments[spikeMoments.size()-1]-spikeMoments[0])/(spikeMoments.size()-1));
-    else
-        freq = 0;
-
     cleanUp();
-    return Amplitude;
+    return 0;
 }
 
-void OdeSolve(int i,  double *V, LR_vars *LR)
+void OdeSolve(double *V, LR_vars *LR)
 {
 	double vd;
 	int kstep=1;
 	double delta_t=dt;
 	for(int j=0; j<kstep; j++)
 	{
-		vd=VFunction(i,V,LR);
+		vd=VFunction(*V,LR);
 
 		if(j==0) //decide on the time substep
 		{
 			kstep=Substeps(vd);
 			delta_t=dt/(double)kstep;
 		}
-		LR[i].Cai += delta_t*CaiFunction(LR[i].Cai,LR[i].d,LR[i].f,V[i]);
-		LR[i].m   = mFunction(V[i],LR[i].m,delta_t);
-		LR[i].h   = hFunction(V[i],LR[i].h,delta_t);
-		LR[i].j   = jFunction(V[i],LR[i].j,delta_t);
-		LR[i].d   = dFunction(V[i],LR[i].d,delta_t);
-		LR[i].f   = fFunction(V[i],LR[i].f,delta_t);
-		LR[i].X   = XFunction(V[i],LR[i].X,delta_t);
-		V[i]   += delta_t*vd;
+		LR->Cai += delta_t*CaiFunction(LR->Cai,LR->d,LR->f,*V);
+		LR->m   = mFunction(*V,LR->m,delta_t);
+		LR->h   = hFunction(*V,LR->h,delta_t);
+		LR->j   = jFunction(*V,LR->j,delta_t);
+		LR->d   = dFunction(*V,LR->d,delta_t);
+		LR->f   = fFunction(*V,LR->f,delta_t);
+		LR->X   = XFunction(*V,LR->X,delta_t);
+		*V   += delta_t*vd;
 	}
 }
 
-void OdeSolve_fib(int i, double *V, Fibroblast *FB)
+void OdeSolve_fib(double *V, Fibroblast *FB)
 {
 	double dV, dC0, dC1, dC2, dC3, dC4, dO;
-	dV = dt*Vf_function(V[i],FB[i].O_shkr);
-	dC0 = dt*C0_function(FB[i].C0,FB[i].C1,V[i]);
-	dC1 = dt*C1_function(FB[i].C0,FB[i].C1,FB[i].C2,V[i]);
-	dC2 = dt*C2_function(FB[i].C1,FB[i].C2,FB[i].C3,V[i]);
-	dC3 = dt*C3_function(FB[i].C2,FB[i].C3,FB[i].C4,V[i]);
-	dC4 = dt*C4_function(FB[i].C3,FB[i].C4,FB[i].O_shkr,V[i]);
-	dO = dt*O_function(FB[i].C4,FB[i].O_shkr);
+	dV = dt*Vf_function(*V,FB->O_shkr);
+	dC0 = dt*C0_function(FB->C0,FB->C1,*V);
+	dC1 = dt*C1_function(FB->C0,FB->C1,FB->C2,*V);
+	dC2 = dt*C2_function(FB->C1,FB->C2,FB->C3,*V);
+	dC3 = dt*C3_function(FB->C2,FB->C3,FB->C4,*V);
+	dC4 = dt*C4_function(FB->C3,FB->C4,FB->O_shkr,*V);
+	dO = dt*O_function(FB->C4,FB->O_shkr);
 
-	V[i] += dV;
-	FB[i].C0 += dC0;
-	FB[i].C1 += dC1;
-	FB[i].C2 += dC2;
-	FB[i].C3 += dC3;
-	FB[i].C4 += dC4;
-	FB[i].O_shkr += dO;
+	*V += dV;
+	FB->C0 += dC0;
+	FB->C1 += dC1;
+	FB->C2 += dC2;
+	FB->C3 += dC3;
+	FB->C4 += dC4;
+	FB->O_shkr += dO;
 
 
 
@@ -329,5 +278,3 @@ inline int Substeps(double &vd)
 
 	return k<kmax ? k : kmax;
 }
-
-
