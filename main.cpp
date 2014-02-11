@@ -10,6 +10,6 @@ int main(int argc, char *argv[])
 {
     std::cout << "Entering main" << std::endl;
     Init_system();
-    SolveEquations(100);
+    SolveEquations(500);
     return 0;
 }
